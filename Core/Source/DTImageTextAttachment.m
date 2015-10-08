@@ -6,13 +6,9 @@
 //  Copyright (c) 2013 Drobnik.com. All rights reserved.
 //
 
-#import "DTCompatibility.h"
-#import "DTImageTextAttachment.h"
-#import "DTCoreTextConstants.h"
-#import "DTHTMLElement.h"
-#import "NSString+CSS.h"
-#import "NSString+HTML.h"
-#import "DTImage+HTML.h"
+#import "DTCoreText.h"
+#import "DTBase64Coding.h"
+#import "UIImage+PDF.h"
 
 #if TARGET_OS_IPHONE
 	#import <DTFoundation/DTAnimatedGIF.h>
@@ -167,7 +163,28 @@ static NSCache *imageCache = nil;
 				contentURL = [NSURL URLWithString:src relativeToURL:baseURL];
 			}
 			
-			if (![contentURL scheme])
+            if ([[contentURL scheme] isEqualToString:@"cache"])
+            {
+                NSString *path = [NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES) lastObject];
+                
+                path = [path stringByAppendingPathComponent:contentURL.path];
+                
+                // try native decoding first
+                NSData *decodedData = [NSData dataWithContentsOfFile:path];
+                
+                if (decodedData)
+                {
+                    UIImage *decodedImage = [UIImage originalSizeImageWithPDFData:decodedData];
+                    
+                    self.image = decodedImage;
+                    NSMutableDictionary *mDict = [self.attributes mutableCopy];
+                    mDict[@"source_file"] = contentURL.absoluteString;
+                    self.attributes = mDict;
+                    
+                    // prevent remote loading of image
+                    _contentURL = nil;
+                }
+            } else if (![contentURL scheme])
 			{
 				// possibly a relative url
 				if (baseURL)
